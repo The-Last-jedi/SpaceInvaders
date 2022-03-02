@@ -2,12 +2,15 @@ import pygame
 import os
 import random
 import time
+from pygame.locals import *
+pygame.init()
 pygame.font.init()
 
 #draw window
 WIDTH,HEIGHT = 750,650
 WIN = pygame.display.set_mode((WIDTH,HEIGHT))
 pygame.display.set_caption('Space Invaders')
+pygame.mouse.set_visible(False)
 
 #load images
 ORANGE_SPACE_SHIP = pygame.transform.scale(pygame.image.load(os.path.join('sprites',"orange_space_ship.png")),(100,83))
@@ -42,38 +45,6 @@ class Laser:
     def collision(self, obj):
         return collide(obj, self)
 
-class Explosion:
-    def __init__(self, x, y, size):
-        self.x = x
-        self.y = y
-        self.images = []
-        for i in range(1,16):
-            img = pygame.image.load('sprites',f'exp{i}.png')
-            if size == 1:
-                img = pygame.transform.scale(img, (20, 20))
-            if size == 2:
-                img = pygame.transform.scale(img, (40, 40))
-            if size == 3:
-                img = pygame.transform.scale(img, (160, 160))
-            self.images.append(img)
-        self.index = 0
-        self.img = self.images[self.index]
-        self.mask = pygame.mask.from_surface(self.img)
-        self.counter =0
-
-    def draw(self, window):
-        window.blit(self.img, (self.x, self.y))   
-
-    def explode(self):
-        explode_speed = 3
-        self.counter += 1
-        if self.counter >= explode_speed and self.index < len(self.images) - 1:
-            self.counter = 0
-            self.index +=1
-            self.img = self.images[self.index]
-        if self.index >= len(self.images) - 1 and self.counter >= explode_speed:
-            self.images.remove(self.img)
-        
 class Ship:
     COOLDOWN = 20
     def __init__(self, x, y, health=100):
@@ -187,6 +158,8 @@ def main():
     laser_v = 7
     lost = False
     lost_count = 0
+    enel = len(enemies)
+    score = -5
 
     def redraw_window():
         #draw background
@@ -195,15 +168,16 @@ def main():
         #draw text
         lives_label = main_font.render(f'Lives: {lives}', 1, (255,255,255))
         level_label = main_font.render(f'Level: {levels}', 1, (255,255,255))
+        score_label = main_font.render(f'Score: {score}', 1, (255,255,255))
         WIN.blit(lives_label, (10,10))
         WIN.blit(level_label, (WIDTH - level_label.get_width() - 10,10))
+        WIN.blit(score_label, (WIDTH - score_label.get_width() - 300,10))
 
         #draw enemies
         for enemy in enemies:
             enemy.draw(WIN)
         #draw player
         player.draw(WIN)
-        #draw explosion
 
          #draw lost
         if lost:
@@ -214,7 +188,13 @@ def main():
 
     while run:
         clock.tick(FPS)
+
+        if enel != len(enemies):
+            score += 5
+            enel = len(enemies)
+
         redraw_window()
+
         if lives<=0 or player.health<=0:
             lost = True
             lost_count += 1
@@ -255,7 +235,7 @@ def main():
             player.y -= player_v
         if keys[pygame.K_SPACE]:
             player.shoot()
-        
+
         for enemy in enemies[:]:
             enemy.move(enemy_v)
             enemy.move_lasers(laser_v, player)
