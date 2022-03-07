@@ -18,6 +18,8 @@ XWING = pygame.transform.scale(pygame.image.load(os.path.join('sprites', 'X-wing
 RED_ENEMY_SHIP = pygame.transform.scale(pygame.image.load(os.path.join('sprites', 'red_enemy.png')),(85, 95))
 GREEN_ENEMY_SHIP = pygame.transform.scale(pygame.image.load(os.path.join('sprites', 'green_enemy.png')), (80, 81))
 BLUE_ENEMY_SHIP = pygame.transform.scale(pygame.image.load(os.path.join('sprites', 'blue_enemy.png')), (99, 81))
+#load drops
+MEDPACK = pygame.transform.scale(pygame.image.load(os.path.join('sprites','medpack.png')), (60, 60))
 #load lasers
 RED_LASER = pygame.transform.scale(pygame.image.load(os.path.join('sprites','red_laser.png')), (13, 37))
 GREEN_LASER = pygame.transform.scale(pygame.image.load(os.path.join('sprites','green_laser.png')), (14, 37))
@@ -44,6 +46,48 @@ class Laser:
     
     def collision(self, obj):
         return collide(obj, self)
+
+class Medpack:
+    def __init__(self, x, y, img):
+        self.x = x
+        self.y = y
+        self.img = img
+        self.mask = pygame.mask.from_surface(self.img)        
+    
+    def draw(self, window):
+        window.blit(self.img, (self.x, self.y))
+
+#create explosion group
+explosion_group = pygame.sprite.Group()
+#create Explosion class
+class Explosion(pygame.sprite.Sprite):
+	def __init__(self, x, y):
+		pygame.sprite.Sprite.__init__(self)
+		self.images = []
+		for num in range(1, 16):
+			img = pygame.image.load(f"explode/img/exp{num}.png")
+			img = pygame.transform.scale(img, (100, 100))
+			self.images.append(img)
+		self.index = 0
+		self.image = self.images[self.index]
+		self.rect = self.image.get_rect()
+		self.rect.center = [x, y]
+		
+		self.counter = 0
+
+	def update(self):
+		explosion_speed = 3
+		#update explosion animation
+		self.counter += 1
+
+		if self.counter >= explosion_speed and self.index < len(self.images) - 1:
+			self.counter = 0
+			self.index += 1
+			self.image = self.images[self.index]
+
+		#if the animation is complete, reset animation index
+		if self.index >= len(self.images) - 1 and self.counter >= explosion_speed:
+			self.kill()
 
 class Ship:
     COOLDOWN = 20
@@ -97,6 +141,21 @@ class Player(Ship):
         self.mask = pygame.mask.from_surface(self.ship_img)
         self.max_health = health
 
+    def lost(self):
+        posx = self.x + 50
+        posy = self.y + 50
+        explosion = Explosion(posx, posy)
+        explosion_group.add(explosion)
+
+    def pick(self, obj):
+        return collide(obj, self)
+
+    def picked(self, objs):
+        for obj in objs:
+            if self.pick(obj):
+                objs.remove(obj)
+                self.health += 10
+
     def move_lasers(self, vel, objs):
         self.cooldown()
         for laser in self.lasers:
@@ -107,6 +166,10 @@ class Player(Ship):
                 for obj in objs:
                     if laser.collision(obj):
                         objs.remove(obj)
+                        posx = obj.x + 50
+                        posy = obj.y + 50
+                        explosion = Explosion(posx, posy)
+                        explosion_group.add(explosion)
                         self.lasers.remove(laser)
     
 class Enemy(Ship):
@@ -151,6 +214,7 @@ def main():
     main_font = pygame.font.SysFont('comcisans', 35)
     lost_font = pygame.font.SysFont('comicsans', 60)
     enemies = []
+    medpacks = []
     wave_length = 5
     enemy_v = 1
     player = Player(330, 550)
@@ -165,14 +229,23 @@ def main():
         #draw background
         WIN.blit(BG, (0,0))
 
+        #draw explosion
+        explosion_group.draw(WIN)
+        explosion_group.update()
+
         #draw text
         lives_label = main_font.render(f'Lives: {lives}', 1, (255,255,255))
         level_label = main_font.render(f'Level: {levels}', 1, (255,255,255))
         score_label = main_font.render(f'Score: {score}', 1, (255,255,255))
+        health_label = main_font.render(f'Health: {player.health}', 1, (255,255,255))
         WIN.blit(lives_label, (10,10))
         WIN.blit(level_label, (WIDTH - level_label.get_width() - 10,10))
-        WIN.blit(score_label, (WIDTH - score_label.get_width() - 300,10))
+        WIN.blit(score_label, (WIDTH - score_label.get_width() - 340,10))
+        WIN.blit(health_label, (WIDTH - health_label.get_width() - 10,625))
 
+        #draw drops
+        for hp in medpacks:
+            hp.draw(WIN)
         #draw enemies
         for enemy in enemies:
             enemy.draw(WIN)
@@ -181,6 +254,7 @@ def main():
 
          #draw lost
         if lost:
+            player.lost()
             lost_label = lost_font.render('You Lost.', 1, (255,255,255))
             WIN.blit(lost_label, (WIDTH/2 - lost_label.get_width()/2, 350))
 
@@ -204,6 +278,12 @@ def main():
                 run = False
             else:
                 continue
+
+        if len(medpacks)==0 and player.health != player.max_health:
+            max_drop = 1
+            for i in range(max_drop):
+                hp = Medpack(random.randrange(70, WIDTH-90), random.randrange(70, WIDTH-90), MEDPACK)
+                medpacks.append(hp)
 
         if len(enemies)==0:
             levels +=1
@@ -244,7 +324,8 @@ def main():
             if enemy.y + enemy.get_height() > HEIGHT:
                 lives -= 1
                 enemies.remove(enemy)
-        
+
+        player.picked(medpacks)
         player.move_lasers(-laser_v, enemies)
     
 main()
