@@ -56,6 +56,12 @@ class Medpack:
     
     def draw(self, window):
         window.blit(self.img, (self.x, self.y))
+        
+    def get_width(self):
+        return self.img.get_width()
+
+    def get_height(self):
+        return self.img.get_height()
 
 #create explosion group
 explosion_group = pygame.sprite.Group()
@@ -279,7 +285,7 @@ def main():
             else:
                 continue
 
-        if len(medpacks)==0 and player.health != player.max_health:
+        if len(medpacks)==0 and player.health != 100:
             max_drop = 1
             for i in range(max_drop):
                 hp = Medpack(random.randrange(70, WIDTH-90), random.randrange(70, WIDTH-90), MEDPACK)
@@ -325,6 +331,9 @@ def main():
                 lives -= 1
                 enemies.remove(enemy)
 
+        for hp in medpacks[:]:
+            if hp.y + hp.get_height() > HEIGHT:
+                medpacks.remove(hp)
         player.picked(medpacks)
         player.move_lasers(-laser_v, enemies)
     
